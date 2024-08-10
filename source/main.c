@@ -8,7 +8,7 @@
 #define GRRLIB_TEAL 0x008080FF
 #define GRRLIB_RED 0xFF0000FF
 
-const unsigned int BRICKS_SIZE = 200;
+const unsigned int BRICKS_SIZE = 120;
 
 typedef struct
 {
@@ -28,10 +28,6 @@ _Bool hasCollision(Rectangle bounds, Rectangle ball)
 
 int main(int argc, char **argv)
 {
-    GRRLIB_Init();
-
-    WPAD_Init();
-
     const int SCREEN_WIDTH = 640;
     const int SCREEN_HEIGHT = 480;
 
@@ -43,7 +39,7 @@ int main(int argc, char **argv)
     int positionY = 60;
 
     int initialIndex = 0;
-    int actualLenght = 18;
+    int actualLenght = 15;
 
     for (int i = 0; i < 8; i++)
     {
@@ -51,24 +47,22 @@ int main(int argc, char **argv)
 
         for (int j = initialIndex; j < actualLenght; j++)
         {
-            // blue color
             unsigned int color = GRRLIB_RED;
 
-            // red color
             if (i % 2 == 0)
             {
                 color = GRRLIB_TEAL;
             }
 
-            Rectangle actualBrick = {positionX, positionY, 36, 16, 0, color};
+            Rectangle actualBrick = {positionX, positionY, 41, 16, 0, color};
 
             bricks[j] = actualBrick;
 
-            positionX += 38;
+            positionX += 43;
         }
 
-        initialIndex += 18;
-        actualLenght += 18;
+        initialIndex += 15;
+        actualLenght += 15;
 
         positionY += 18;
     }
@@ -82,26 +76,24 @@ int main(int argc, char **argv)
     int ballVelocityX = 4;
     int ballVelocityY = 4;
 
-    // loading fonts
+    GRRLIB_Init();
+    WPAD_Init();
+
     GRRLIB_texImg *tex_BMfont2 = GRRLIB_LoadTexture(BMfont2_png);
-    // To indicate the font region to load.
     GRRLIB_InitTileSet(tex_BMfont2, 16, 16, 32);
 
-    // Loop forever
     while (1)
     {
         WPAD_SetVRes(0, SCREEN_WIDTH, SCREEN_HEIGHT);
-        WPAD_ScanPads(); // Scan the Wiimotes
+        WPAD_ScanPads(); 
 
         const u32 wpaddown = WPAD_ButtonsDown(0);
         const u32 wpadheld = WPAD_ButtonsHeld(0);
 
         GRRLIB_FillScreen(GRRLIB_BLACK);
 
-        // displaying text with the loaded fonts.
         GRRLIB_Printf(300, 25, tex_BMfont2, GRRLIB_WHITE, 1, "DEMO");
 
-        // If [HOME] was pressed on the first Wiimote, break out of the loop
         if (wpaddown & WPAD_BUTTON_HOME)
         {
             break;
@@ -121,6 +113,7 @@ int main(int argc, char **argv)
         {
             player.x -= playerSpeed;
         }
+
         else if (wpadheld & WPAD_BUTTON_RIGHT && player.x < SCREEN_WIDTH - player.w)
         {
             player.x += playerSpeed;
@@ -171,7 +164,7 @@ int main(int argc, char **argv)
         GRRLIB_Render();
     }
 
-    GRRLIB_Exit(); // Be a good boy, clear the memory allocated by GRRLIB
+    GRRLIB_Exit(); 
 
-    exit(0); // Use exit() to exit a program, do not use 'return' from main()
+    exit(0); 
 }
