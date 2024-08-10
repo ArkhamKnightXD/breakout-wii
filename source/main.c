@@ -87,19 +87,19 @@ int main(int argc, char **argv)
         WPAD_SetVRes(0, SCREEN_WIDTH, SCREEN_HEIGHT);
         WPAD_ScanPads(); 
 
-        const u32 wpaddown = WPAD_ButtonsDown(0);
-        const u32 wpadheld = WPAD_ButtonsHeld(0);
+        const u32 padDown = WPAD_ButtonsDown(0);
+        const u32 padHeld = WPAD_ButtonsHeld(0);
 
         GRRLIB_FillScreen(GRRLIB_BLACK);
 
         GRRLIB_Printf(300, 25, tex_BMfont2, GRRLIB_WHITE, 1, "DEMO");
 
-        if (wpaddown & WPAD_BUTTON_HOME)
+        if (padDown & WPAD_BUTTON_HOME)
         {
             break;
         }
 
-        if (wpaddown & WPAD_BUTTON_A)
+        if (padDown & WPAD_BUTTON_A)
         {
             isAutoPlayMode = !isAutoPlayMode;
         }
@@ -109,12 +109,12 @@ int main(int argc, char **argv)
             player.x = ball.x;
         }
 
-        if (wpadheld & WPAD_BUTTON_LEFT && player.x > 0)
+        if (padHeld & WPAD_BUTTON_LEFT && player.x > 0)
         {
             player.x -= playerSpeed;
         }
 
-        else if (wpadheld & WPAD_BUTTON_RIGHT && player.x < SCREEN_WIDTH - player.w)
+        else if (padHeld & WPAD_BUTTON_RIGHT && player.x < SCREEN_WIDTH - player.w)
         {
             player.x += playerSpeed;
         }
@@ -164,7 +164,8 @@ int main(int argc, char **argv)
         GRRLIB_Render();
     }
 
-    GRRLIB_Exit(); 
+    GRRLIB_FreeTexture(tex_BMfont2);
 
+    GRRLIB_Exit(); 
     exit(0); 
 }
