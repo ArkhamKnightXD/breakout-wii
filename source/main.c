@@ -1,19 +1,14 @@
-/*===========================================
-        GRRLIB (GX Version)
-        - Template Code -
-
-        Minimum Code To Use GRRLIB
-============================================*/
 #include <grrlib.h>
-
 #include <stdlib.h>
 #include <wiiuse/wpad.h>
 #include "BMfont2_png.h"
-// #include "alien_1_png.h"
-#include "test_jpg_jpg.h"
 
 #define GRRLIB_BLACK 0x000000FF
 #define GRRLIB_WHITE 0xFFFFFFFF
+#define GRRLIB_TEAL 0x008080FF
+#define GRRLIB_RED 0xFF0000FF
+
+const unsigned int BRICKS_SIZE = 200;
 
 typedef struct
 {
@@ -21,76 +16,159 @@ typedef struct
     float y;
     float w;
     float h;
+    _Bool isDestroyed;
+    unsigned int color;
 } Rectangle;
+
+_Bool hasCollision(Rectangle bounds, Rectangle ball)
+{
+    return bounds.x < ball.x + ball.w && bounds.x + bounds.w > ball.x &&
+           bounds.y < ball.y + ball.h && bounds.y + bounds.h > ball.y;
+}
 
 int main(int argc, char **argv)
 {
-    // Initialise the Graphics & Video subsystem
     GRRLIB_Init();
 
-    // Initialise the Wiimotes
     WPAD_Init();
 
-    Rectangle bounds = {0, 0, 64, 64};
-
-    const int SCREEN_WIDHT = 640;
+    const int SCREEN_WIDTH = 640;
     const int SCREEN_HEIGHT = 480;
-    const int SPEED = 10;
 
-    // loading images png
-    // GRRLIB_texImg *tex_test_jpg = GRRLIB_LoadTexture(test_jpg_jpg);
+    _Bool isAutoPlayMode = false;
+
+    Rectangle bricks[BRICKS_SIZE];
+
+    int positionX;
+    int positionY = 60;
+
+    int initialIndex = 0;
+    int actualLenght = 18;
+
+    for (int i = 0; i < 8; i++)
+    {
+        positionX = 2;
+
+        for (int j = initialIndex; j < actualLenght; j++)
+        {
+            // blue color
+            unsigned int color = GRRLIB_RED;
+
+            // red color
+            if (i % 2 == 0)
+            {
+                color = GRRLIB_TEAL;
+            }
+
+            Rectangle actualBrick = {positionX, positionY, 36, 16, 0, color};
+
+            bricks[j] = actualBrick;
+
+            positionX += 38;
+        }
+
+        initialIndex += 18;
+        actualLenght += 18;
+
+        positionY += 18;
+    }
+
+    Rectangle player = {SCREEN_WIDTH / 2, SCREEN_HEIGHT - 16, 42, 16};
+
+    Rectangle ball = {SCREEN_WIDTH / 2 - 16, SCREEN_HEIGHT / 2 - 16, 16, 16};
+
+    const int playerSpeed = 6;
+
+    int ballVelocityX = 4;
+    int ballVelocityY = 4;
 
     // loading fonts
     GRRLIB_texImg *tex_BMfont2 = GRRLIB_LoadTexture(BMfont2_png);
-    //To indicate the font region to load.
+    // To indicate the font region to load.
     GRRLIB_InitTileSet(tex_BMfont2, 16, 16, 32);
 
     // Loop forever
     while (1)
     {
-        WPAD_SetVRes(0, SCREEN_WIDHT, SCREEN_HEIGHT);
+        WPAD_SetVRes(0, SCREEN_WIDTH, SCREEN_HEIGHT);
         WPAD_ScanPads(); // Scan the Wiimotes
 
         const u32 wpaddown = WPAD_ButtonsDown(0);
         const u32 wpadheld = WPAD_ButtonsHeld(0);
 
-        GRRLIB_FillScreen(GRRLIB_BLACK); // Clear the screen
+        GRRLIB_FillScreen(GRRLIB_BLACK);
 
         // displaying text with the loaded fonts.
         GRRLIB_Printf(300, 25, tex_BMfont2, GRRLIB_WHITE, 1, "DEMO");
-
-        // Draw img
-        //  GRRLIB_DrawImg(10, 50, tex_test_jpg, 0, 1, 1, GRRLIB_WHITE);
 
         // If [HOME] was pressed on the first Wiimote, break out of the loop
         if (wpaddown & WPAD_BUTTON_HOME)
         {
             break;
         }
-        if (wpadheld & WPAD_BUTTON_LEFT && bounds.x > 0)
+
+        if (wpaddown & WPAD_BUTTON_A)
         {
-            bounds.x -= SPEED;
-        }
-        if (wpadheld & WPAD_BUTTON_RIGHT && bounds.x < SCREEN_WIDHT - bounds.w)
-        {
-            bounds.x += SPEED;
-        }
-        if (wpadheld & WPAD_BUTTON_UP && bounds.y > 0)
-        {
-            bounds.y -= SPEED;
-        }
-        if (wpadheld & WPAD_BUTTON_DOWN && bounds.y < SCREEN_HEIGHT - bounds.h)
-        {
-            bounds.y += SPEED;
+            isAutoPlayMode = !isAutoPlayMode;
         }
 
-        // ---------------------------------------------------------------------
-        // Place your drawing code here
-        // ---------------------------------------------------------------------
+        if (isAutoPlayMode && ball.x < SCREEN_WIDTH - player.w)
+        {
+            player.x = ball.x;
+        }
 
-        GRRLIB_Rectangle(bounds.x, bounds.y, bounds.w, bounds.h, GRRLIB_WHITE, 1);
+        if (wpadheld & WPAD_BUTTON_LEFT && player.x > 0)
+        {
+            player.x -= playerSpeed;
+        }
+        else if (wpadheld & WPAD_BUTTON_RIGHT && player.x < SCREEN_WIDTH - player.w)
+        {
+            player.x += playerSpeed;
+        }
 
-        GRRLIB_Render(); // Render the frame buffer to the TV
+        if (ball.y > SCREEN_HEIGHT + ball.h)
+        {
+            ball.x = SCREEN_WIDTH / 2 - ball.w;
+            ball.y = SCREEN_HEIGHT / 2 - ball.h;
+
+            ballVelocityX *= -1;
+        }
+
+        if (ball.x < 0 || ball.x > SCREEN_WIDTH - ball.w)
+        {
+            ballVelocityX *= -1;
+        }
+
+        if (hasCollision(player, ball) || ball.y < 0)
+        {
+            ballVelocityY *= -1;
+        }
+
+        for (size_t i = 0; i < BRICKS_SIZE; i++)
+        {
+            if (!bricks[i].isDestroyed && hasCollision(bricks[i], ball))
+            {
+                ballVelocityY *= -1;
+                bricks[i].isDestroyed = 1;
+                break;
+            }
+        }
+
+        ball.x += ballVelocityX;
+        ball.y += ballVelocityY;
+
+        for (size_t i = 0; i < BRICKS_SIZE; i++)
+        {
+            if (!bricks[i].isDestroyed)
+            {
+                GRRLIB_Rectangle(bricks[i].x, bricks[i].y, bricks[i].w, bricks[i].h, bricks[i].color, 1);
+            }
+        }
+
+        GRRLIB_Rectangle(ball.x, ball.y, ball.w, ball.h, GRRLIB_WHITE, 1);
+        GRRLIB_Rectangle(player.x, player.y, player.w, player.h, GRRLIB_WHITE, 1);
+
+        GRRLIB_Render();
     }
 
     GRRLIB_Exit(); // Be a good boy, clear the memory allocated by GRRLIB
