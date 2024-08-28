@@ -1,14 +1,13 @@
 #include <grrlib.h>
 #include <stdlib.h>
+#include <vector>
 #include <wiiuse/wpad.h>
 #include "BMfont2_png.h"
 
-#define GRRLIB_BLACK 0x000000FF
-#define GRRLIB_WHITE 0xFFFFFFFF
-#define GRRLIB_TEAL 0x008080FF
-#define GRRLIB_RED 0xFF0000FF
-
-const unsigned int BRICKS_SIZE = 120;
+#define BLACK 0x000000FF
+#define WHITE 0xFFFFFFFF
+#define RED 0xFF0000FF
+#define TEAL 0x008080FF
 
 typedef struct
 {
@@ -16,11 +15,43 @@ typedef struct
     float y;
     float w;
     float h;
-    _Bool isDestroyed;
     unsigned int color;
+    bool isDestroyed;
 } Rectangle;
 
-_Bool hasCollision(Rectangle bounds, Rectangle ball)
+std::vector<Rectangle> createBricks()
+{
+    std::vector<Rectangle> bricks;
+
+    int positionX;
+    int positionY = 60;
+
+    for (int row = 0; row < 8; row++)
+    {
+        positionX = 0;
+
+        for (int column = 0; column < 15; column++)
+        {
+            unsigned int color = RED;
+
+            if (row % 2 == 0)
+            {
+                color = TEAL;
+            }
+
+            Rectangle actualBrick = {(float)positionX, (float)positionY, 41, 16, color, false};
+
+            bricks.push_back(actualBrick);
+            positionX += 43;
+        }
+
+        positionY += 18;
+    }
+
+    return bricks;
+}
+
+bool hasCollision(Rectangle bounds, Rectangle ball)
 {
     return bounds.x < ball.x + ball.w && bounds.x + bounds.w > ball.x &&
            bounds.y < ball.y + ball.h && bounds.y + bounds.h > ball.y;
@@ -31,45 +62,13 @@ int main(int argc, char **argv)
     const int SCREEN_WIDTH = 640;
     const int SCREEN_HEIGHT = 480;
 
-    _Bool isAutoPlayMode = false;
+    bool isAutoPlayMode = false;
 
-    Rectangle bricks[BRICKS_SIZE];
+    std::vector<Rectangle> bricks = createBricks();
 
-    int positionX;
-    int positionY = 60;
+    Rectangle player = {SCREEN_WIDTH / 2, SCREEN_HEIGHT - 16, 42, 16, WHITE};
 
-    int initialIndex = 0;
-    int actualLenght = 15;
-
-    for (int i = 0; i < 8; i++)
-    {
-        positionX = 2;
-
-        for (int j = initialIndex; j < actualLenght; j++)
-        {
-            unsigned int color = GRRLIB_RED;
-
-            if (i % 2 == 0)
-            {
-                color = GRRLIB_TEAL;
-            }
-
-            Rectangle actualBrick = {positionX, positionY, 41, 16, 0, color};
-
-            bricks[j] = actualBrick;
-
-            positionX += 43;
-        }
-
-        initialIndex += 15;
-        actualLenght += 15;
-
-        positionY += 18;
-    }
-
-    Rectangle player = {SCREEN_WIDTH / 2, SCREEN_HEIGHT - 16, 42, 16};
-
-    Rectangle ball = {SCREEN_WIDTH / 2 - 16, SCREEN_HEIGHT / 2 - 16, 16, 16};
+    Rectangle ball = {SCREEN_WIDTH / 2 - 16, SCREEN_HEIGHT / 2 - 16, 16, 16, WHITE};
 
     const int playerSpeed = 6;
 
@@ -85,14 +84,14 @@ int main(int argc, char **argv)
     while (1)
     {
         WPAD_SetVRes(0, SCREEN_WIDTH, SCREEN_HEIGHT);
-        WPAD_ScanPads(); 
+        WPAD_ScanPads();
 
         const u32 padDown = WPAD_ButtonsDown(0);
         const u32 padHeld = WPAD_ButtonsHeld(0);
 
-        GRRLIB_FillScreen(GRRLIB_BLACK);
+        GRRLIB_FillScreen(BLACK);
 
-        GRRLIB_Printf(300, 25, tex_BMfont2, GRRLIB_WHITE, 1, "DEMO");
+        GRRLIB_Printf(300, 25, tex_BMfont2, WHITE, 1, "DEMO");
 
         if (padDown & WPAD_BUTTON_HOME)
         {
@@ -137,35 +136,33 @@ int main(int argc, char **argv)
             ballVelocityY *= -1;
         }
 
-        for (size_t i = 0; i < BRICKS_SIZE; i++)
+        for (Rectangle &brick : bricks)
         {
-            if (!bricks[i].isDestroyed && hasCollision(bricks[i], ball))
+            if (!brick.isDestroyed && hasCollision(brick, ball))
             {
                 ballVelocityY *= -1;
-                bricks[i].isDestroyed = 1;
-                break;
+                brick.isDestroyed = true;
             }
         }
 
         ball.x += ballVelocityX;
         ball.y += ballVelocityY;
 
-        for (size_t i = 0; i < BRICKS_SIZE; i++)
+        for (Rectangle brick : bricks)
         {
-            if (!bricks[i].isDestroyed)
+            if (!brick.isDestroyed)
             {
-                GRRLIB_Rectangle(bricks[i].x, bricks[i].y, bricks[i].w, bricks[i].h, bricks[i].color, 1);
+                GRRLIB_Rectangle(brick.x, brick.y, brick.w, brick.h, brick.color, 1);
             }
         }
 
-        GRRLIB_Rectangle(ball.x, ball.y, ball.w, ball.h, GRRLIB_WHITE, 1);
-        GRRLIB_Rectangle(player.x, player.y, player.w, player.h, GRRLIB_WHITE, 1);
+        GRRLIB_Rectangle(ball.x, ball.y, ball.w, ball.h, ball.color, 1);
+        GRRLIB_Rectangle(player.x, player.y, player.w, player.h, player.color, 1);
 
         GRRLIB_Render();
     }
 
     GRRLIB_FreeTexture(tex_BMfont2);
-
-    GRRLIB_Exit(); 
-    exit(0); 
+    GRRLIB_Exit();
+    exit(0);
 }
