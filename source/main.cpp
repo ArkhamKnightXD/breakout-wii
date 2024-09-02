@@ -1,13 +1,21 @@
 #include <grrlib.h>
 #include <stdlib.h>
 #include <vector>
+#include <iostream>
 #include <wiiuse/wpad.h>
-#include "BMfont2_png.h"
+#include "BMfont3_png.h"
 
 #define BLACK 0x000000FF
 #define WHITE 0xFFFFFFFF
 #define RED 0xFF0000FF
 #define TEAL 0x008080FF
+
+const int SCREEN_WIDTH = 640;
+const int SCREEN_HEIGHT = 480;
+
+bool isAutoPlayMode = false;
+
+bool isGamePaused;
 
 typedef struct
 {
@@ -17,14 +25,28 @@ typedef struct
     float h;
     unsigned int color;
     bool isDestroyed;
+    int brickPoints;
 } Rectangle;
+
+Rectangle player = {SCREEN_WIDTH / 2, SCREEN_HEIGHT - 16, 42, 16, WHITE};
+
+Rectangle ball = {SCREEN_WIDTH / 2 - 16, SCREEN_HEIGHT / 2 - 16, 16, 16, WHITE};
+
+const int playerSpeed = 6;
+
+int ballVelocityX = 4;
+int ballVelocityY = 4;
+
+int playerScore;
+int playerLives = 2;
 
 std::vector<Rectangle> createBricks()
 {
     std::vector<Rectangle> bricks;
 
+    int brickPoints = 8;
     int positionX;
-    int positionY = 60;
+    int positionY = 50;
 
     for (int row = 0; row < 8; row++)
     {
@@ -39,17 +61,20 @@ std::vector<Rectangle> createBricks()
                 color = TEAL;
             }
 
-            Rectangle actualBrick = {(float)positionX, (float)positionY, 41, 16, color, false};
+            Rectangle actualBrick = {(float)positionX, (float)positionY, 41, 16, color, false, brickPoints};
 
             bricks.push_back(actualBrick);
             positionX += 43;
         }
 
+        brickPoints--;
         positionY += 18;
     }
 
     return bricks;
 }
+
+std::vector<Rectangle> bricks = createBricks();
 
 bool hasCollision(Rectangle bounds, Rectangle ball)
 {
@@ -57,31 +82,76 @@ bool hasCollision(Rectangle bounds, Rectangle ball)
            bounds.y < ball.y + ball.h && bounds.y + bounds.h > ball.y;
 }
 
+void update(u32 padDown, u32 padHeld)
+{
+    if (padDown & WPAD_BUTTON_A)
+    {
+        isAutoPlayMode = !isAutoPlayMode;
+    }
+
+    if (isAutoPlayMode && ball.x < SCREEN_WIDTH - player.w)
+    {
+        player.x = ball.x;
+    }
+
+    if (padHeld & WPAD_BUTTON_LEFT && player.x > 0)
+    {
+        player.x -= playerSpeed;
+    }
+
+    else if (padHeld & WPAD_BUTTON_RIGHT && player.x < SCREEN_WIDTH - player.w)
+    {
+        player.x += playerSpeed;
+    }
+
+    if (ball.y > SCREEN_HEIGHT + ball.h)
+    {
+        ball.x = SCREEN_WIDTH / 2 - ball.w;
+        ball.y = SCREEN_HEIGHT / 2 - ball.h;
+
+        ballVelocityX *= -1;
+
+        if (playerLives > 0)
+        {
+            playerLives--;
+        }
+    }
+
+    if (ball.x < 0 || ball.x > SCREEN_WIDTH - ball.w)
+    {
+        ballVelocityX *= -1;
+    }
+
+    if (hasCollision(player, ball) || ball.y < 0)
+    {
+        ballVelocityY *= -1;
+    }
+
+    for (Rectangle &brick : bricks)
+    {
+        if (!brick.isDestroyed && hasCollision(brick, ball))
+        {
+            ballVelocityY *= -1;
+            brick.isDestroyed = true;
+            playerScore += brick.brickPoints;
+
+            break;
+        }
+    }
+
+    ball.x += ballVelocityX;
+    ball.y += ballVelocityY;
+}
+
 int main(int argc, char **argv)
 {
-    const int SCREEN_WIDTH = 640;
-    const int SCREEN_HEIGHT = 480;
-
-    bool isAutoPlayMode = false;
-
-    std::vector<Rectangle> bricks = createBricks();
-
-    Rectangle player = {SCREEN_WIDTH / 2, SCREEN_HEIGHT - 16, 42, 16, WHITE};
-
-    Rectangle ball = {SCREEN_WIDTH / 2 - 16, SCREEN_HEIGHT / 2 - 16, 16, 16, WHITE};
-
-    const int playerSpeed = 6;
-
-    int ballVelocityX = 4;
-    int ballVelocityY = 4;
-
     GRRLIB_Init();
     WPAD_Init();
 
-    GRRLIB_texImg *tex_BMfont2 = GRRLIB_LoadTexture(BMfont2_png);
-    GRRLIB_InitTileSet(tex_BMfont2, 16, 16, 32);
+    GRRLIB_texImg *tex_BMfont3 = GRRLIB_LoadTexture(BMfont3_png);
+    GRRLIB_InitTileSet(tex_BMfont3, 32, 32, 32);
 
-    while (1)
+    while (true)
     {
         WPAD_SetVRes(0, SCREEN_WIDTH, SCREEN_HEIGHT);
         WPAD_ScanPads();
@@ -89,64 +159,30 @@ int main(int argc, char **argv)
         const u32 padDown = WPAD_ButtonsDown(0);
         const u32 padHeld = WPAD_ButtonsHeld(0);
 
-        GRRLIB_FillScreen(BLACK);
-
-        GRRLIB_Printf(300, 25, tex_BMfont2, WHITE, 1, "DEMO");
-
         if (padDown & WPAD_BUTTON_HOME)
         {
             break;
         }
 
-        if (padDown & WPAD_BUTTON_A)
+        if (padDown & WPAD_BUTTON_B)
         {
-            isAutoPlayMode = !isAutoPlayMode;
+            isGamePaused = !isGamePaused;
         }
 
-        if (isAutoPlayMode && ball.x < SCREEN_WIDTH - player.w)
+        if (!isGamePaused)
         {
-            player.x = ball.x;
+            update(padDown, padHeld);
         }
 
-        if (padHeld & WPAD_BUTTON_LEFT && player.x > 0)
-        {
-            player.x -= playerSpeed;
-        }
+        GRRLIB_FillScreen(BLACK);
 
-        else if (padHeld & WPAD_BUTTON_RIGHT && player.x < SCREEN_WIDTH - player.w)
-        {
-            player.x += playerSpeed;
-        }
+        std::string scoreString = "SCORE: " + std::to_string(playerScore);
 
-        if (ball.y > SCREEN_HEIGHT + ball.h)
-        {
-            ball.x = SCREEN_WIDTH / 2 - ball.w;
-            ball.y = SCREEN_HEIGHT / 2 - ball.h;
+        GRRLIB_Printf(20, 0, tex_BMfont3, WHITE, 1, scoreString.c_str());
 
-            ballVelocityX *= -1;
-        }
+        std::string livesString = "LIVES: " + std::to_string(playerLives);
 
-        if (ball.x < 0 || ball.x > SCREEN_WIDTH - ball.w)
-        {
-            ballVelocityX *= -1;
-        }
-
-        if (hasCollision(player, ball) || ball.y < 0)
-        {
-            ballVelocityY *= -1;
-        }
-
-        for (Rectangle &brick : bricks)
-        {
-            if (!brick.isDestroyed && hasCollision(brick, ball))
-            {
-                ballVelocityY *= -1;
-                brick.isDestroyed = true;
-            }
-        }
-
-        ball.x += ballVelocityX;
-        ball.y += ballVelocityY;
+        GRRLIB_Printf(370, 0, tex_BMfont3, WHITE, 1, livesString.c_str());
 
         for (Rectangle brick : bricks)
         {
@@ -159,10 +195,15 @@ int main(int argc, char **argv)
         GRRLIB_Rectangle(ball.x, ball.y, ball.w, ball.h, ball.color, 1);
         GRRLIB_Rectangle(player.x, player.y, player.w, player.h, player.color, 1);
 
+        if (isGamePaused)
+        {
+            GRRLIB_Printf(150, 50, tex_BMfont3, WHITE, 1, "GAME PAUSED");
+        }
+
         GRRLIB_Render();
     }
 
-    GRRLIB_FreeTexture(tex_BMfont2);
+    GRRLIB_FreeTexture(tex_BMfont3);
     GRRLIB_Exit();
     exit(0);
 }
